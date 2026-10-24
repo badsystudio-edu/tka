@@ -38,6 +38,7 @@ const Siswa = {
 
   // ---------- Awal ----------
   async start() {
+    document.documentElement.setAttribute('data-theme', 'light'); // siswa: tema terang saja
     const s = Sess.get();
     if (s && s.role === 'siswa') {
       $('#root').innerHTML = '<div class="spin"></div>';
@@ -62,7 +63,7 @@ const Siswa = {
         <label class="f" for="nisn">NISN / Nomor peserta</label><input class="inp num" id="nisn" inputmode="numeric" required>
         <label class="f" for="pin">PIN keamanan (6 angka pada kartu)</label><input class="inp num" id="pin" type="password" inputmode="numeric" maxlength="6" required>
         <label class="f" for="tok">Token ujian dari pengawas</label><input class="inp num" id="tok" maxlength="6" style="letter-spacing:.35em;text-transform:uppercase;text-align:center;font-size:20px" required>
-        <div class="card mt16" style="border-color:var(--bad-bg);background:#14080b"><b class="bad">Protokol keamanan ketat</b>
+        <div class="card mt16" style="border-color:var(--bad-bg);background:var(--lockbg)"><b class="bad">Protokol keamanan ketat</b>
           <p class="sm mut mt8">Dilarang berpindah aplikasi, membuka tab lain, atau keluar dari layar penuh. Setiap pelanggaran dicatat dan memicu sirene. Melewati batas pelanggaran mengunci akun Anda.</p></div>
         ${err ? `<div class="err" role="alert">${esc(err)}</div>` : ''}
         <button class="btn pri block mt16" id="go" ${u ? '' : 'disabled'}>MULAI KERJAKAN UJIAN</button>
@@ -164,7 +165,7 @@ const Siswa = {
   // ---------- Tampilan ujian ----------
   renderExam() {
     const S = this.S, d = S.d;
-    $('#root').innerHTML = `<div class="hud"><div class="row"><div class="logo" style="width:32px;height:32px;font-size:14px">E</div><div><b class="num">ExamaTKA</b><div class="xs ok">● PROCTOR ACTIVE</div></div></div>
+    $('#root').innerHTML = `<div class="hud"><div class="row">${(Sess.get() || {}).foto ? `<img class="av" src="${esc(Sess.get().foto)}" alt="" referrerpolicy="no-referrer">` : '<div class="logo" style="width:32px;height:32px;font-size:14px">E</div>'}<div><b class="num">${esc((Sess.get() || {}).nama || 'ExamaTKA')}</b><div class="xs ok">● PROCTOR ACTIVE</div></div></div>
       <div class="col" style="align-items:flex-end;gap:2px"><div class="timer" id="tm">${fmtDur(this.sisa())}</div><div id="sv" class="xs ok">Tersimpan</div></div></div>
       <div class="m"><div class="row between"><div><div class="xs mut">NOMOR SOAL</div><b class="num" id="qn"></b></div><span class="pill ${S.strike ? 'warn' : ''}" id="st">Pelanggaran ${S.strike}/${S.batas}</span></div>
       <div class="nav" id="nv"></div><div id="qa"></div></div>
