@@ -165,7 +165,7 @@ const Siswa = {
   // ---------- Tampilan ujian ----------
   renderExam() {
     const S = this.S, d = S.d;
-    $('#root').innerHTML = `<div class="hud"><div class="row">${(Sess.get() || {}).foto ? `<img class="av" src="${esc(Sess.get().foto)}" alt="" referrerpolicy="no-referrer">` : '<div class="logo" style="width:32px;height:32px;font-size:14px">E</div>'}<div><b class="num">${esc((Sess.get() || {}).nama || 'ExamaTKA')}</b><div class="xs ok">● PROCTOR ACTIVE</div></div></div>
+    $('#root').innerHTML = `<div class="hud"><div class="row">${(Sess.get() || {}).foto ? `<img class="av" ${imgAttr(Sess.get().foto)} alt="">` : '<div class="logo" style="width:32px;height:32px;font-size:14px">E</div>'}<div><b class="num">${esc((Sess.get() || {}).nama || 'ExamaTKA')}</b><div class="xs ok">● PROCTOR ACTIVE</div></div></div>
       <div class="col" style="align-items:flex-end;gap:2px"><div class="timer" id="tm">${fmtDur(this.sisa())}</div><div id="sv" class="xs ok">Tersimpan</div></div></div>
       <div class="m"><div class="row between"><div><div class="xs mut">NOMOR SOAL</div><b class="num" id="qn"></b></div><span class="pill ${S.strike ? 'warn' : ''}" id="st">Pelanggaran ${S.strike}/${S.batas}</span></div>
       <div class="nav" id="nv"></div><div id="qa"></div></div>
@@ -192,7 +192,7 @@ const Siswa = {
     else if (q.tipe === 'MATCH') body = q.kiri.map((k, i) => `<div class="card" style="margin-bottom:8px"><div>${esc(k)}</div><select class="inp mt8" data-m="${i}"><option value="">— pilih pasangan —</option>${q.kanan.map(r => `<option ${a && a[i] === r ? 'selected' : ''} value="${esc(r)}">${esc(r)}</option>`).join('')}</select></div>`).join('');
     else body = `<textarea class="inp" data-essay="${esc(q.id)}" placeholder="Tulis jawaban Anda di sini..." spellcheck="false">${esc(a || '')}</textarea>`;
     $('#qa').innerHTML = `<div class="row between mt8"><span class="pill pri">${TIPE[q.tipe]}</span><span class="xs mut">${TIPE_HINT[q.tipe]} · ${q.bobot} poin</span></div>
-      ${q.stimulus || q.gambar ? `<div class="card mt16"><div class="stim">${esc(q.stimulus).replace(/\n/g, '<br>')}</div>${q.gambar ? `<img class="qimg" src="${esc(q.gambar)}" alt="Gambar soal ${q.no}" loading="lazy">` : ''}</div>` : ''}
+      ${q.stimulus || q.gambar ? `<div class="card mt16"><div class="stim">${esc(q.stimulus).replace(/\n/g, '<br>')}</div>${q.gambar ? `<img class="qimg" ${imgAttr(q.gambar)} alt="Gambar soal ${q.no}">` : ''}</div>` : ''}
       <div class="qtext">${esc(q.tanya).replace(/\n/g, '<br>')}</div>${body}`;
     $('#qn').textContent = `${S.cur + 1} dari ${S.d.soal.length}`;
     $('#nx').textContent = S.cur === S.d.soal.length - 1 ? 'Kirim ✓' : 'Berikut →';

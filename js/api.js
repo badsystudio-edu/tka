@@ -38,8 +38,8 @@ async function api(action, data = {}) {
   }
   throw lastErr;
 }
-async function apiGet(action) {
-  const res = await fetch(GAS_URL + '?action=' + action);
+async function apiGet(action, extra = '') {
+  const res = await fetch(GAS_URL + '?action=' + action + extra);
   const j = await res.json();
   if (!j.success) throw new Error(j.message);
   return j.data;
@@ -85,7 +85,7 @@ function pickFiles(accept, multiple) {
     i.onchange = () => res([...i.files]); i.oncancel = () => res([]); i.click();
   });
 }
-function compressImage(file, maxPx = 1200, q = 0.82) {
+function compressImage(file, maxPx = 1000, q = 0.78) {
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), img = new Image();
     img.onload = () => {
@@ -125,3 +125,33 @@ async function saveXLSX(name, sheets) {
   });
   X.writeFile(wb, name);
 }
+
+// ---------- Gambar dari Drive: langsung bila publik, lewat backend ("gas:ID") bila dibatasi kebijakan sekolah ----------
+const Img = {
+  mem: {}, antre: [], jalan: 0,
+  get(id) {
+    if (this.mem[id]) return Promise.resolve(this.mem[id]);
+    try { const c = sessionStorage.getItem('img_' + id); if (c) return Promise.resolve(this.mem[id] = c); } catch (e) { }
+    return new Promise((res, rej) => { this.antre.push({ id, res, rej }); this.pump(); });
+  },
+  pump() { // maksimal 4 unduhan bersamaan agar tidak membebani backend
+    while (this.jalan < 4 && this.antre.length) {
+      const t = this.antre.shift(); this.jalan++;
+      apiGet('gambar', '&id=' + encodeURIComponent(t.id)).then(r => {
+        const u = 'data:' + r.mime + ';base64,' + r.b64; this.mem[t.id] = u;
+        try { sessionStorage.setItem('img_' + t.id, u); } catch (e) { }
+        t.res(u);
+      }).catch(t.rej).finally(() => { this.jalan--; this.pump(); });
+    }
+  }
+};
+const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+function imgAttr(u) {
+  u = String(u || '');
+  return u.startsWith('gas:') ? `src="${PIX}" data-gas="${esc(u.slice(4))}"` : `src="${esc(u)}" referrerpolicy="no-referrer"`;
+}
+new MutationObserver(() => {
+  document.querySelectorAll('img[data-gas]:not([data-ld])').forEach(im => {
+    im.dataset.ld = 1; Img.get(im.dataset.gas).then(u => { im.src = u; }).catch(() => { });
+  });
+}).observe(document.documentElement, { childList: true, subtree: true });

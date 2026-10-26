@@ -9,7 +9,7 @@ const ST_STATUS = {
 };
 const stPill = s => { const m = ST_STATUS[s] || ['', s]; return `<span class="pill ${m[0]}">${m[1]}</span>`; };
 const initials = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
-const av = (nama, foto, cls = '') => foto ? `<img class="av ${cls}" src="${esc(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="av ${cls}">${esc(initials(nama))}</span>`;
+const av = (nama, foto, cls = '') => foto ? `<img class="av ${cls}" ${imgAttr(foto)} alt="">` : `<span class="av ${cls}">${esc(initials(nama))}</span>`;
 const fileBase = f => f.name.replace(/\.[^.]+$/, '').trim();
 
 const SOAL_COLS = ['No', 'Tipe', 'Level', 'Stimulus', 'Pertanyaan', 'Opsi', 'Kunci', 'Bobot', 'Rubrik_Essay', 'Skor_Maks'];
@@ -162,7 +162,7 @@ const St = {
         { name: 'Petunjuk', cols: ['Petunjuk'], rows: [{ Petunjuk: 'Hapus 2 baris contoh, isi data peserta mulai baris 2.' }, { Petunjuk: 'Format kolom NISN sebagai TEKS agar angka 0 di depan tidak hilang.' }, { Petunjuk: 'Kolom PIN boleh kosong: sistem membuat PIN acak 6 angka.' }], wide: { Petunjuk: 80 } }]);
       else if (a === 'pimp') await this.pesertaImpor();
       else if (a === 'pfoto') await this.fotoMassal();
-      else if (a === 'pfoto1') { const [f] = await pickFiles('image/*'); if (!f) return; const c = await compressImage(f, 480, .85); await api('admin.fotoSiswa', { nisn: ds.n, b64: c.b64, mime: c.mime }); toast('Foto tersimpan', 'ok'); this.reload(); }
+      else if (a === 'pfoto1') { const [f] = await pickFiles('image/*'); if (!f) return; const c = await compressImage(f, 400, .8); await api('admin.fotoSiswa', { nisn: ds.n, b64: c.b64, mime: c.mime }); toast('Foto tersimpan', 'ok'); this.reload(); }
       else if (a === 'pkartu') this.kartu(this.pFiltered());
       else if (a === 'pkartu1') this.kartu(this.pAll.filter(x => x.NISN === ds.n));
       // --- jadwal
@@ -275,7 +275,7 @@ const St = {
     const items = files.map(f => ({
       label: f.name, fn: async () => {
         const n = fileBase(f); if (!ada.has(n)) throw new Error('nama file bukan NISN terdaftar');
-        const c = await compressImage(f, 480, .85); await api('admin.fotoSiswa', { nisn: n, b64: c.b64, mime: c.mime });
+        const c = await compressImage(f, 400, .8); await api('admin.fotoSiswa', { nisn: n, b64: c.b64, mime: c.mime });
       }
     }));
     await this.batch('Unggah foto peserta', items); this.reload();
@@ -286,6 +286,11 @@ const St = {
     w.document.write('<p style="font:14px sans-serif;padding:20px">Menyiapkan kartu...</p>');
     let sekolah = 'ExamaTKA'; try { sekolah = (await apiGet('publicInfo')).sekolah; } catch (e) { }
     const url = location.origin + location.pathname.replace(/index\.html$/, '');
+    list = await Promise.all(list.map(async s => {
+      let f = s.Foto || '';
+      if (f.startsWith('gas:')) { try { f = await Img.get(f.slice(4)); } catch (e) { f = ''; } }
+      return Object.assign({}, s, { Foto: f });
+    }));
     const cards = list.map(s => `<div class="k"><div class="h"><b>${esc(sekolah)}</b><span>KARTU PESERTA UJIAN</span></div><div class="b"><div class="f">${s.Foto ? `<img src="${esc(s.Foto)}" referrerpolicy="no-referrer" alt="">` : '<i>FOTO</i>'}</div>
       <div class="d"><div class="n">${esc(s.Nama)}</div><table><tr><td>NISN</td><td>: <b>${esc(s.NISN)}</b></td></tr><tr><td>Rombel</td><td>: ${esc(s.Rombel)}</td></tr><tr><td>Meja/PC</td><td>: ${esc(s.No_Meja)}</td></tr><tr><td>PIN</td><td>: <b class="pin">${esc(s.PIN_Teks) || '-'}</b></td></tr></table></div></div>
       <div class="u">${esc(url)} · Token ujian diberikan pengawas di ruang</div></div>`).join('');
@@ -361,7 +366,7 @@ const St = {
     $('#pg').innerHTML = this.head('Bank soal 5 tipe', `${L.length} butir · ${Object.keys(cnt).map(k => k + ' ' + cnt[k]).join(' · ') || 'kosong'}`,
       `<button class="btn pri" data-s="bnew">+ Tambah soal</button><button class="btn" data-s="btpl">Templat Excel</button><select class="inp" id="im" style="width:auto;min-height:44px"><option value="tambah">Impor: tambahkan</option><option value="ganti">Impor: ganti semua</option></select><button class="btn" data-s="bimp">Impor Excel/CSV</button><button class="btn" data-s="bgam">Gambar massal</button><button class="btn" data-s="prev">Pratinjau</button>`) +
       `<p class="xs mut" style="margin:-8px 0 12px">Gambar diunggah ke Google Drive otomatis. Saat ujian berlangsung, bank soal dikunci.</p><div id="ir"></div>
-      <div class="tw"><table><thead><tr><th>NO</th><th>GAMBAR</th><th>TIPE</th><th>SOAL</th><th>KUNCI</th><th>BOBOT</th><th></th></tr></thead><tbody>${L.map(q => `<tr><td class="num">${q.No}</td><td>${q.Gambar_Tampil ? `<img class="thumb" src="${esc(q.Gambar_Tampil)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="mut xs">—</span>'}</td>
+      <div class="tw"><table><thead><tr><th>NO</th><th>GAMBAR</th><th>TIPE</th><th>SOAL</th><th>KUNCI</th><th>BOBOT</th><th></th></tr></thead><tbody>${L.map(q => `<tr><td class="num">${q.No}</td><td>${q.Gambar_Tampil ? `<img class="thumb" ${imgAttr(q.Gambar_Tampil)} alt="">` : '<span class="mut xs">—</span>'}</td>
         <td><span class="pill pri">${esc(q.Tipe)}</span><div class="xs mut">${esc(q.Level)}</div></td><td>${esc(String(q.Pertanyaan).slice(0, 130))}</td><td class="sm">${q.Tipe === 'ESSAY' ? '<span class="pill warn">RUBRIK AI</span>' : q.Tipe === 'MATCH' ? '<span class="mut">pasangan</span>' : esc(q.Kunci)}</td><td class="num">${q.Bobot}</td>
         <td><div class="row wrap"><button class="btn sm" data-s="bedit" data-id="${esc(q.ID)}">Edit</button><button class="btn sm" data-s="bgam1" data-id="${esc(q.ID)}">Gambar</button><button class="btn sm bad" data-s="bdel" data-id="${esc(q.ID)}">Hapus</button></div></td></tr>`).join('') || '<tr><td colspan="7" class="mut">Belum ada soal. Klik "Tambah soal" atau impor dari Excel.</td></tr>'}</tbody></table></div>`;
   },
@@ -405,7 +410,7 @@ const St = {
   },
   async pratinjau() {
     const L = await api('bank.pratinjau', { kode: this.kode });
-    this.modal(`<div class="row between"><h2>Pratinjau (${L.length} butir)</h2><button class="btn sm" data-s="x">Tutup</button></div>${L.map(q => `<div class="card mt8"><span class="pill pri">${TIPE[q.tipe] || q.tipe}</span> <span class="xs mut">${q.bobot} poin</span>${q.stimulus ? `<p class="sm mut mt8">${esc(q.stimulus)}</p>` : ''}${q.gambar ? `<img class="qimg" src="${esc(q.gambar)}" alt="" referrerpolicy="no-referrer">` : ''}<p class="mt8"><b>${q.no}.</b> ${esc(q.tanya)}</p><ul class="sm mut" style="padding-left:18px">${(q.opsi || q.kiri || []).map(o => `<li>${esc(o)}</li>`).join('')}</ul></div>`).join('')}`);
+    this.modal(`<div class="row between"><h2>Pratinjau (${L.length} butir)</h2><button class="btn sm" data-s="x">Tutup</button></div>${L.map(q => `<div class="card mt8"><span class="pill pri">${TIPE[q.tipe] || q.tipe}</span> <span class="xs mut">${q.bobot} poin</span>${q.stimulus ? `<p class="sm mut mt8">${esc(q.stimulus)}</p>` : ''}${q.gambar ? `<img class="qimg" ${imgAttr(q.gambar)} alt="">` : ''}<p class="mt8"><b>${q.no}.</b> ${esc(q.tanya)}</p><ul class="sm mut" style="padding-left:18px">${(q.opsi || q.kiri || []).map(o => `<li>${esc(o)}</li>`).join('')}</ul></div>`).join('')}`);
   },
 
   // --- editor satu soal
@@ -433,7 +438,7 @@ const St = {
     $('#sol').textContent = 'Opsi — ' + h[0]; $('#skl').textContent = 'Kunci — ' + h[1];
   },
   soalGambar() {
-    $('#sgm').innerHTML = this.edUrl ? `<div class="row"><img class="thumb" style="width:120px;height:80px" src="${esc(this.edPrev || this.edUrl)}" alt="" referrerpolicy="no-referrer"><button class="btn sm" data-s="sgup">Ganti</button><button class="btn sm bad" data-s="sgdel">Hapus</button></div>`
+    $('#sgm').innerHTML = this.edUrl ? `<div class="row"><img class="thumb" style="width:120px;height:80px" ${imgAttr(this.edPrev || this.edUrl)} alt=""><button class="btn sm" data-s="sgup">Ganti</button><button class="btn sm bad" data-s="sgdel">Hapus</button></div>`
       : `<button class="btn block" data-s="sgup">Pilih & unggah gambar (JPG/PNG)</button>`;
   },
   async soalSimpan(id) {

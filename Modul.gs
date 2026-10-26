@@ -491,7 +491,11 @@ function adminPesertaImpor_(d) {
       baru.push(SCHEMA.Data_Siswa.map(function (k) { return ({ NISN: nisn, Nama: nama, Rombel: r.Rombel || '', PIN_Hash: hashPin_(pin), No_Meja: r.No_Meja || '', Status_Kunci: '', PIN_Teks: pin, Foto_URL: '' })[k]; }));
       hasil.push({ NISN: nisn, Nama: nama, Rombel: r.Rombel || '', PIN: pin });
     });
-    if (baru.length) { const sh = sheet_('Data_Siswa'); sh.getRange(sh.getLastRow() + 1, 1, baru.length, baru[0].length).setValues(baru); }
+    if (baru.length) {
+      const sh = sheet_('Data_Siswa'), mulai = sh.getLastRow() + 1;
+      TEXT_COLS.Data_Siswa.forEach(function (c) { sh.getRange(mulai, SCHEMA.Data_Siswa.indexOf(c) + 1, baru.length, 1).setNumberFormat('@'); });
+      sh.getRange(mulai, 1, baru.length, baru[0].length).setValues(baru);
+    }
     cdel_('tbl_siswa');
   }, 20000);
   return { berhasil: hasil, error: err };
@@ -700,7 +704,12 @@ function getSubFolder_(nama) {
   return f;
 }
 
-function simpanGambar_(folder, d, prefix) {
+// Bungkus langkah Drive agar pesan error menyebut langkah yang gagal
+function drv_(langkah, fn) {
+  try { return fn(); } catch (e) { throw new Error('Google Drive menolak pada langkah "' + langkah + '": ' + e.message); }
+}
+
+function simpanGambar_(folderNama, d, prefix) {
   const mime = String(d.mime || '').toLowerCase();
   if (['image/jpeg', 'image/png', 'image/webp'].indexOf(mime) < 0) throw new Error('Format gambar harus JPG, PNG, atau WEBP.');
   const b64 = String(d.b64 || '').replace(/^data:[^,]*,/, '');
@@ -708,9 +717,13 @@ function simpanGambar_(folder, d, prefix) {
   if (b64.length > 4000000) throw new Error('Gambar terlalu besar (maks ±3 MB).');
   const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
   const nama = String(prefix).replace(/[^\w-]/g, '_') + '_' + Date.now() + '.' + ext;
-  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, nama));
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return { id: file.getId(), url: 'https://drive.google.com/file/d/' + file.getId() + '/view' };
+  const folder = drv_('membuka folder ' + folderNama, function () { return getSubFolder_(folderNama); });
+  const file = drv_('menyimpan file', function () { return folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, nama)); });
+  // Berbagi publik bisa diblokir kebijakan Workspace sekolah. Jika gagal, gambar disajikan lewat backend ("gas:ID").
+  let publik = true;
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { publik = false; }
+  const id = file.getId();
+  return { id: id, publik: publik, url: publik ? 'https://drive.google.com/file/d/' + id + '/view' : 'gas:' + id };
 }
 
 function hapusFileDrive_(url) {
@@ -720,18 +733,35 @@ function hapusFileDrive_(url) {
 
 function uploadGambar_(d, sess) {
   cekMapel_(sess, d.kode);
-  const r = simpanGambar_(getSubFolder_('Gambar_Soal'), d, d.kode || 'soal');
-  return { url: r.url, tampil: thumbUrl_(r.url, 300) };
+  const r = simpanGambar_('Gambar_Soal', d, d.kode || 'soal');
+  return { url: r.url, publik: r.publik };
 }
 
 function adminFotoSiswa_(d) {
   const s = rows_('Data_Siswa').filter(function (x) { return String(x.NISN) === String(d.nisn); })[0];
   if (!s) throw new Error('NISN belum terdaftar: ' + d.nisn);
-  const r = simpanGambar_(getSubFolder_('Foto_Siswa'), d, String(d.nisn));
+  const r = simpanGambar_('Foto_Siswa', d, String(d.nisn));
   hapusFileDrive_(s.Foto_URL);
   updateRow_('Data_Siswa', s._row, { Foto_URL: r.url });
   cdel_('tbl_siswa');
-  return { foto: fotoUrl_(r.url) };
+  return { foto: fotoUrl_(r.url), publik: r.publik };
+}
+
+// Sajikan gambar lewat backend (hanya file di folder Gambar_Soal / Foto_Siswa, bukan file Drive sembarang)
+function ambilGambar_(id) {
+  id = String(id || '');
+  if (!/^[\w-]{20,}$/.test(id)) throw new Error('ID gambar tidak valid.');
+  const ck = 'img_' + id, hit = C_().get(ck);
+  if (hit) return JSON.parse(hit);
+  const props = PropertiesService.getScriptProperties();
+  const sah = [props.getProperty('F_Gambar_Soal'), props.getProperty('F_Foto_Siswa')];
+  const file = DriveApp.getFileById(id), it = file.getParents();
+  let ok = false;
+  while (it.hasNext()) { if (sah.indexOf(it.next().getId()) >= 0) { ok = true; break; } }
+  if (!ok) throw new Error('Gambar tidak ditemukan.');
+  const blob = file.getBlob(), r = { mime: blob.getContentType(), b64: Utilities.base64Encode(blob.getBytes()) };
+  if (r.b64.length < 95000) cput_(ck, r, 21600);
+  return r;
 }
 
 // Beri PIN acak untuk peserta yang PIN-nya belum tersimpan agar bisa dilihat/dicetak admin
